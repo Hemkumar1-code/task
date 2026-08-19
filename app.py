@@ -2,6 +2,7 @@ import os
 import xlrd
 import openpyxl
 import tempfile
+import re
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from flask import Flask, render_template, request, send_file, flash, redirect
 
@@ -44,6 +45,7 @@ def process_invoice_files(invoice_paths, output_path):
                 r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
                 try:
                     style = str(r[1]).strip()
+                    style = re.sub(r'\(SIZE:.*?\)', '', style, flags=re.IGNORECASE).strip()
                     qty = float(r[5])
                     try:
                         net_wt = float(r[9])
