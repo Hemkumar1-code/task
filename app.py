@@ -41,7 +41,14 @@ def process_invoice_files(invoice_paths, output_path):
         for si in range(wb_in.nsheets):
             ws_in = wb_in.sheet_by_index(si)
             if ws_in.name == 'PL': continue
+            
+            current_quality = "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )"
+            
             for i in range(ws_in.nrows):
+                col0 = str(ws_in.cell_value(i, 0)).strip()
+                if 'ORGANIC COTTON' in col0.upper():
+                    current_quality = col0
+                    
                 r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
                 try:
                     style = str(r[1]).strip()
@@ -60,7 +67,8 @@ def process_invoice_files(invoice_paths, output_path):
                             'style': style,
                             'qty': qty,
                             'inv_no': inv_no,
-                            'buyer': buyer
+                            'buyer': buyer,
+                            'quality': current_quality
                         })
                 except:
                     pass
@@ -125,6 +133,7 @@ def process_invoice_files(invoice_paths, output_path):
         qty = data['qty']
         buyer = data['buyer']
         inv_no = data['inv_no']
+        quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
         
         net_wt = style_weights.get(style, None)
         
@@ -146,7 +155,7 @@ def process_invoice_files(invoice_paths, output_path):
         row_values = [
             idx,
             "Sri Shanmugavel Mills Private Limited Knitting Division",
-            "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )",
+            quality,
             "", "", "", "", "", "",
             raw_val,
             style,
