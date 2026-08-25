@@ -135,18 +135,20 @@ def process_invoice_files(invoice_paths, output_path):
         inv_no = data['inv_no']
         quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
         
-        net_wt = style_weights.get(style, None)
+        single_piece_wt = style_weights.get(style, None)
         
-        if net_wt is not None:
-            supp_wt = net_wt * 0.10
-            cert_wt = net_wt - supp_wt
-            finished_prod = net_wt * qty
+        if single_piece_wt is not None:
+            total_net_wt = single_piece_wt * qty
+            
+            supp_wt = total_net_wt * 0.10
+            cert_wt = total_net_wt - supp_wt
+            finished_prod = total_net_wt
             loss_pct = 0.15 
             raw_used = finished_prod * (1 + loss_pct)
             
             raw_val = round(raw_used, 3)
             cert_val = round(cert_wt, 3)
-            net_val = round(net_wt, 3)
+            net_val = round(total_net_wt, 3)
             supp_val = round(supp_wt, 3)
             fin_val = round(finished_prod, 3)
         else:
