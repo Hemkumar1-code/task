@@ -5,7 +5,7 @@ import database
 import tempfile
 import re
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from flask import Flask, render_template, request, send_file, flash, redirect
+from flask import Flask, render_template, request, send_file, flash, redirect, jsonify
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key'
