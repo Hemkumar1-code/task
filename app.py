@@ -61,7 +61,8 @@ def process_invoice_files(invoice_paths, output_path):
                     
                     if style and qty > 0:
                         if net_wt and net_wt > 0:
-                            style_weights[style] = net_wt
+                            existing_wt = style_weights.get(style, 0)
+                            style_weights[style] = max(existing_wt, net_wt)
                             
                         styles_data.append({
                             'style': style,
@@ -76,6 +77,53 @@ def process_invoice_files(invoice_paths, output_path):
     if not styles_data:
         raise ValueError("No valid style data found in the uploaded invoices.")
         
+    # Extract PL Gross Weight for each invoice
+    pl_gross_weights = {}
+    for invoice_path in invoice_paths:
+        try:
+            wb_in = xlrd.open_workbook(invoice_path)
+        except:
+            continue
+            
+        inv_no_temp = 'Unknown Invoice'
+        # First get the inv_no
+        for si in range(wb_in.nsheets):
+            ws_in = wb_in.sheet_by_index(si)
+            if ws_in.name.startswith('INV'):
+                for i in range(min(15, ws_in.nrows)):
+                    r = [str(ws_in.cell_value(i,j)).strip() for j in range(ws_in.ncols)]
+                    full = ' '.join(r)
+                    if 'SKDT/' in full and inv_no_temp == 'Unknown Invoice':
+                        for v in r:
+                            if 'SKDT/' in v and '/DT:' in v:
+                                inv_no_temp = v.split('/DT:')[0].strip()
+        
+        # Now find PL sheet
+        for si in range(wb_in.nsheets):
+            ws_in = wb_in.sheet_by_index(si)
+            if ws_in.name == 'PL':
+                for i in range(ws_in.nrows):
+                    row_str = ' '.join([str(x).strip() for x in ws_in.row_values(i)]).upper()
+                    if 'TTL GROSS WEIGHT' in row_str:
+                        for v in ws_in.row_values(i):
+                            try:
+                                val = float(v)
+                                if val > 0:
+                                    pl_gross_weights[inv_no_temp] = val
+                                    break
+                            except:
+                                pass
+
+    # Calculate total finished product for each invoice
+    invoice_totals = {}
+    for data in styles_data:
+        inv_no_curr = data['inv_no']
+        style_curr = data['style']
+        qty_curr = data['qty']
+        single_piece_wt = style_weights.get(style_curr, 0)
+        if single_piece_wt:
+            invoice_totals[inv_no_curr] = invoice_totals.get(inv_no_curr, 0) + (single_piece_wt * qty_curr)
+
     wb_out = openpyxl.Workbook()
     ws_out = wb_out.active
     ws_out.title = 'Mass Balance Sheet'
@@ -106,7 +154,7 @@ def process_invoice_files(invoice_paths, output_path):
         "Open Stock in Kgs.", "Raw Material used in Kg", "Product Name", "Loss(%)", 
         "Buyers Name", "Invoice No.", "Certified Weight(Kg)", "Net Wt(Kg)", "Gross Weight(Kg)", 
         "Supplementary Wt (Kg)", "Transport Details(BL No/Challan No)", "Standard", 
-        "IDFL TC No.", "Raw Material (Kg)", " Finished Product (kg)"
+        "IDFL TC No.", "Raw Material (Kg)", " Finished Product (kg)", "Difference"
     ]
     
     ws_out.append(headers)
@@ -117,7 +165,7 @@ def process_invoice_files(invoice_paths, output_path):
         cell.alignment = center_align
         if 2 <= col_idx <= 9: cell.fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
         elif 10 <= col_idx <= 21: cell.fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
-        elif 22 <= col_idx <= 23: cell.fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+        elif 22 <= col_idx <= 24: cell.fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
         else: cell.fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
 
     for i in range(1, len(headers)+1):
@@ -153,6 +201,13 @@ def process_invoice_files(invoice_paths, output_path):
             fin_val = round(finished_prod, 3)
         else:
             raw_val = cert_val = net_val = supp_val = fin_val = ""
+            
+        # Calculate Difference (PL Gross Weight - Invoice Total Finished Weight)
+        diff_val = ""
+        pl_gross = pl_gross_weights.get(inv_no, None)
+        inv_total_fin = invoice_totals.get(inv_no, None)
+        if pl_gross is not None and inv_total_fin is not None:
+            diff_val = round(pl_gross - inv_total_fin, 3)
         
         row_values = [
             idx,
@@ -172,7 +227,8 @@ def process_invoice_files(invoice_paths, output_path):
             "GOTS" if idx == 1 else "",
             "551193" if idx == 1 else "",
             "",
-            fin_val
+            fin_val,
+            diff_val
         ]
         
         for col_idx, val in enumerate(row_values, 1):
