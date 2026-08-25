@@ -12,16 +12,40 @@ UPLOAD_FOLDER = tempfile.gettempdir()
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def process_invoice_files(invoice_paths, output_path):
-    styles_data = []
     style_weights = {}
+    
+    # Cache workbooks in memory to avoid reading from disk multiple times
+    workbooks = []
     
     for invoice_path in invoice_paths:
         try:
-            wb_in = xlrd.open_workbook(invoice_path)
+            wb_in = xlrd.open_workbook(invoice_path, on_demand=True)
+            workbooks.append(wb_in)
         except Exception as e:
             continue
             
-        # Try to extract Invoice No and Buyer from the first INV sheet
+        for si in range(wb_in.nsheets):
+            ws_in = wb_in.sheet_by_index(si)
+            if ws_in.name == 'PL': continue
+            for i in range(ws_in.nrows):
+                r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
+                try:
+                    style = str(r[1]).strip()
+                    style = re.sub(r'\(SIZE:.*?\)', '', style, flags=re.IGNORECASE).strip()
+                    qty = float(r[5])
+                    net_wt = float(r[9])
+                    if style and qty > 0 and net_wt > 0:
+                        existing_wt = style_weights.get(style, 0)
+                        style_weights[style] = max(existing_wt, net_wt)
+                except:
+                    pass
+
+    styles_data = []
+    
+    pl_gross_weights = {}
+    pl_net_weights = {}
+    
+    for wb_in in workbooks:
         inv_no = 'Unknown Invoice'
         buyer = 'Unknown Buyer'
         
@@ -37,7 +61,26 @@ def process_invoice_files(invoice_paths, output_path):
                                 inv_no = v.split('/DT:')[0].strip()
                     if r[0].startswith('M/S.') and 'SREE KANAGA' not in r[0] and buyer == 'Unknown Buyer':
                         buyer = r[0]
-                    
+        
+        # Extract PL weights for this invoice
+        for si in range(wb_in.nsheets):
+            ws_in = wb_in.sheet_by_index(si)
+            if ws_in.name == 'PL':
+                for i in range(ws_in.nrows):
+                    row_str = ' '.join([str(x).strip() for x in ws_in.row_values(i)]).upper()
+                    if 'TTL GROSS WEIGHT' in row_str:
+                        for v in ws_in.row_values(i):
+                            try:
+                                val = float(v)
+                                if val > 0: pl_gross_weights[inv_no] = val; break
+                            except: pass
+                    elif 'TTL NET WEIGHT' in row_str:
+                        for v in ws_in.row_values(i):
+                            try:
+                                val = float(v)
+                                if val > 0: pl_net_weights[inv_no] = val; break
+                            except: pass
+
         for si in range(wb_in.nsheets):
             ws_in = wb_in.sheet_by_index(si)
             if ws_in.name == 'PL': continue
@@ -54,16 +97,8 @@ def process_invoice_files(invoice_paths, output_path):
                     style = str(r[1]).strip()
                     style = re.sub(r'\(SIZE:.*?\)', '', style, flags=re.IGNORECASE).strip()
                     qty = float(r[5])
-                    try:
-                        net_wt = float(r[9])
-                    except:
-                        net_wt = None
                     
                     if style and qty > 0:
-                        if net_wt and net_wt > 0:
-                            existing_wt = style_weights.get(style, 0)
-                            style_weights[style] = max(existing_wt, net_wt)
-                            
                         styles_data.append({
                             'style': style,
                             'qty': qty,
@@ -73,56 +108,6 @@ def process_invoice_files(invoice_paths, output_path):
                         })
                 except:
                     pass
-                    
-    if not styles_data:
-        raise ValueError("No valid style data found in the uploaded invoices.")
-        
-    # Extract PL Gross Weight for each invoice
-    pl_gross_weights = {}
-    for invoice_path in invoice_paths:
-        try:
-            wb_in = xlrd.open_workbook(invoice_path)
-        except:
-            continue
-            
-        inv_no_temp = 'Unknown Invoice'
-        # First get the inv_no
-        for si in range(wb_in.nsheets):
-            ws_in = wb_in.sheet_by_index(si)
-            if ws_in.name.startswith('INV'):
-                for i in range(min(15, ws_in.nrows)):
-                    r = [str(ws_in.cell_value(i,j)).strip() for j in range(ws_in.ncols)]
-                    full = ' '.join(r)
-                    if 'SKDT/' in full and inv_no_temp == 'Unknown Invoice':
-                        for v in r:
-                            if 'SKDT/' in v and '/DT:' in v:
-                                inv_no_temp = v.split('/DT:')[0].strip()
-        
-        pl_net_weights = {}
-        # Now find PL sheet
-        for si in range(wb_in.nsheets):
-            ws_in = wb_in.sheet_by_index(si)
-            if ws_in.name == 'PL':
-                for i in range(ws_in.nrows):
-                    row_str = ' '.join([str(x).strip() for x in ws_in.row_values(i)]).upper()
-                    if 'TTL GROSS WEIGHT' in row_str:
-                        for v in ws_in.row_values(i):
-                            try:
-                                val = float(v)
-                                if val > 0:
-                                    pl_gross_weights[inv_no_temp] = val
-                                    break
-                            except:
-                                pass
-                    elif 'TTL NET WEIGHT' in row_str:
-                        for v in ws_in.row_values(i):
-                            try:
-                                val = float(v)
-                                if val > 0:
-                                    pl_net_weights[inv_no_temp] = val
-                                    break
-                            except:
-                                pass
 
     # Calculate total finished product for each invoice
     invoice_totals = {}
