@@ -42,8 +42,11 @@ class IdflStock(Base):
     sheet = Column(String, nullable=False)
     status = Column(String, nullable=False)
 
-# Initialize database
-Base.metadata.create_all(engine)
+try:
+    # Initialize database
+    Base.metadata.create_all(engine)
+except Exception as e:
+    print(f"Warning: Could not initialize database tables: {e}")
 
 def get_style_weights():
     with Session() as session:
