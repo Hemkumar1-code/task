@@ -9,8 +9,12 @@ load_dotenv()
 # Get the URL, default to a local sqlite fallback if not provided
 raw_url = os.environ.get('POSTGRES_URL', 'sqlite:///local_fallback.db')
 
+# Force pg8000 driver for Vercel
+if raw_url.startswith('postgresql://'):
+    raw_url = raw_url.replace('postgresql://', 'postgresql+pg8000://', 1)
+
 # Fix password URL encoding if it contains special characters like #
-if 'postgresql+pg8000://' in raw_url:
+if raw_url.startswith('postgresql+pg8000://'):
     # Format is postgresql+pg8000://user:password@host:port/db
     try:
         parts = raw_url.split('@')
