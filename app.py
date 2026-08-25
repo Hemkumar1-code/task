@@ -98,6 +98,7 @@ def process_invoice_files(invoice_paths, output_path):
                             if 'SKDT/' in v and '/DT:' in v:
                                 inv_no_temp = v.split('/DT:')[0].strip()
         
+        pl_net_weights = {}
         # Now find PL sheet
         for si in range(wb_in.nsheets):
             ws_in = wb_in.sheet_by_index(si)
@@ -110,6 +111,15 @@ def process_invoice_files(invoice_paths, output_path):
                                 val = float(v)
                                 if val > 0:
                                     pl_gross_weights[inv_no_temp] = val
+                                    break
+                            except:
+                                pass
+                    elif 'TTL NET WEIGHT' in row_str:
+                        for v in ws_in.row_values(i):
+                            try:
+                                val = float(v)
+                                if val > 0:
+                                    pl_net_weights[inv_no_temp] = val
                                     break
                             except:
                                 pass
@@ -185,8 +195,16 @@ def process_invoice_files(invoice_paths, output_path):
         
         single_piece_wt = style_weights.get(style, None)
         
+        # Calculate ratio for this invoice
+        ratio = 1.0
+        inv_total_fin = invoice_totals.get(inv_no, 0)
+        pl_net = pl_net_weights.get(inv_no, None)
+        if pl_net is not None and inv_total_fin > 0:
+            ratio = pl_net / inv_total_fin
+        
         if single_piece_wt is not None:
-            total_net_wt = single_piece_wt * qty
+            raw_total_net_wt = single_piece_wt * qty
+            total_net_wt = raw_total_net_wt * ratio
             
             supp_wt = total_net_wt * 0.10
             cert_wt = total_net_wt - supp_wt
@@ -205,7 +223,9 @@ def process_invoice_files(invoice_paths, output_path):
         # Calculate Difference (PL Gross Weight - Invoice Total Finished Weight)
         diff_val = ""
         pl_gross = pl_gross_weights.get(inv_no, None)
-        inv_total_fin = invoice_totals.get(inv_no, None)
+        pl_net = pl_net_weights.get(inv_no, None)
+        inv_total_fin = pl_net if pl_net is not None else invoice_totals.get(inv_no, None)
+        
         if pl_gross is not None and inv_total_fin is not None:
             diff_val = round(pl_gross - inv_total_fin, 3)
         
