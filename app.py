@@ -114,7 +114,10 @@ def process_invoice_files(invoice_paths, output_path):
             target_prod = '100% Organic Cotton'
             target_sheet = 'NON-IDFL'
             
-        for s in idfl_stock:
+        # Sort stock by remaining_weight (lowest first) so smaller balances get consumed first
+        sorted_stock = sorted(idfl_stock, key=lambda x: x.get('remaining_weight', 0))
+        
+        for s in sorted_stock:
             # Skip if exhausted or not enough weight
             if s.get('status') == 'Exhausted' or s.get('remaining_weight', 0) < required_weight:
                 continue
