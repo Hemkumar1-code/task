@@ -1,6 +1,7 @@
 import os
 import xlrd
 import openpyxl
+import database
 import tempfile
 import re
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -12,7 +13,7 @@ UPLOAD_FOLDER = tempfile.gettempdir()
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def process_invoice_files(invoice_paths, output_path):
-    style_weights = {}
+    style_weights = database.get_style_weights()
     
     # Cache workbooks in memory to avoid reading from disk multiple times
     workbooks = []
@@ -40,6 +41,8 @@ def process_invoice_files(invoice_paths, output_path):
                 except:
                     pass
 
+    database.save_style_weights(style_weights)
+
     styles_data = []
     
     pl_gross_weights = {}
@@ -62,24 +65,7 @@ def process_invoice_files(invoice_paths, output_path):
                     if r[0].startswith('M/S.') and 'SREE KANAGA' not in r[0] and buyer == 'Unknown Buyer':
                         buyer = r[0]
         
-        # Extract PL weights for this invoice
-        for si in range(wb_in.nsheets):
-            ws_in = wb_in.sheet_by_index(si)
-            if ws_in.name == 'PL':
-                for i in range(ws_in.nrows):
-                    row_str = ' '.join([str(x).strip() for x in ws_in.row_values(i)]).upper()
-                    if 'TTL GROSS WEIGHT' in row_str:
-                        for v in ws_in.row_values(i):
-                            try:
-                                val = float(v)
-                                if val > 0: pl_gross_weights[inv_no] = val; break
-                            except: pass
-                    elif 'TTL NET WEIGHT' in row_str:
-                        for v in ws_in.row_values(i):
-                            try:
-                                val = float(v)
-                                if val > 0: pl_net_weights[inv_no] = val; break
-                            except: pass
+        
 
         for si in range(wb_in.nsheets):
             ws_in = wb_in.sheet_by_index(si)
@@ -109,17 +95,46 @@ def process_invoice_files(invoice_paths, output_path):
                 except:
                     pass
 
-    # Calculate total finished product for each invoice
-    invoice_totals = {}
-    for data in styles_data:
-        inv_no_curr = data['inv_no']
-        style_curr = data['style']
-        qty_curr = data['qty']
-        single_piece_wt = style_weights.get(style_curr, 0)
-        if single_piece_wt:
-            invoice_totals[inv_no_curr] = invoice_totals.get(inv_no_curr, 0) + (single_piece_wt * qty_curr)
+    idfl_stock = database.get_idfl_stock()
+    
+    def find_matching_stock(quality, required_weight):
+        # Determine target product string and sheet based on quality
+        q = quality.upper()
+        
+        target_prod = None
+        target_sheet = None
+        
+        if 'WOVEN' in q and '100%' in q:
+            target_prod = 'Woven Fabrics' # Partial match
+            target_sheet = 'IDFL'
+        elif '95%' in q and '5%' in q:
+            target_prod = '95%'
+            target_sheet = None # Search all, or NON-IDFL
+        elif '100% ORGANIC COTTON' in q:
+            target_prod = '100% Organic Cotton'
+            target_sheet = 'NON-IDFL'
+            
+        for s in idfl_stock:
+            # Skip if exhausted or not enough weight
+            if s.get('status') == 'Exhausted' or s.get('remaining_weight', 0) < required_weight:
+                continue
+                
+            # Sheet filter
+            if target_sheet and s.get('sheet') != target_sheet:
+                continue
+                
+            prod_str = s.get('products', '').upper()
+            if target_prod and target_prod.upper() in prod_str:
+                return s
+                
+            # If no target prod identified but it's 100% organic cotton
+            if not target_prod and '100% ORGANIC COTTON' in prod_str:
+                return s
+                
+        return None
 
     wb_out = openpyxl.Workbook()
+
     ws_out = wb_out.active
     ws_out.title = 'Mass Balance Sheet'
     
@@ -160,7 +175,6 @@ def process_invoice_files(invoice_paths, output_path):
         cell.alignment = center_align
         if 2 <= col_idx <= 9: cell.fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
         elif 10 <= col_idx <= 21: cell.fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
-        elif 22 <= col_idx <= 24: cell.fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
         else: cell.fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
 
     for i in range(1, len(headers)+1):
@@ -180,63 +194,64 @@ def process_invoice_files(invoice_paths, output_path):
         
         single_piece_wt = style_weights.get(style, None)
         
-        # Calculate ratio for this invoice
-        ratio = 1.0
-        inv_total_fin = invoice_totals.get(inv_no, 0)
-        pl_net = pl_net_weights.get(inv_no, None)
-        if pl_net is not None and inv_total_fin > 0:
-            ratio = pl_net / inv_total_fin
-        
         if single_piece_wt is not None:
-            raw_total_net_wt = single_piece_wt * qty
-            total_net_wt = raw_total_net_wt * ratio
+            finished_prod = single_piece_wt * qty
             
-            supp_wt = total_net_wt * 0.10
-            cert_wt = total_net_wt - supp_wt
-            finished_prod = total_net_wt
-            loss_pct = 0.15 
+            # Loss percentage increased to 21%
+            loss_pct = 0.21
             raw_used = finished_prod * (1 + loss_pct)
+            
+            supp_wt = finished_prod * 0.10
+            cert_wt = finished_prod - supp_wt
             
             raw_val = round(raw_used, 3)
             cert_val = round(cert_wt, 3)
-            net_val = round(total_net_wt, 3)
             supp_val = round(supp_wt, 3)
             fin_val = round(finished_prod, 3)
+            
+            # FIFO Stock Logic
+            matched_stock = find_matching_stock(quality, finished_prod)
+            
+            if matched_stock:
+                net_val = round(matched_stock['remaining_weight'], 3)
+                tc_number = matched_stock['tc_number']
+                
+                # Deduct weight
+                matched_stock['remaining_weight'] -= finished_prod
+            else:
+                net_val = round(finished_prod, 3) # Fallback
+                tc_number = ""
+                
         else:
             raw_val = cert_val = net_val = supp_val = fin_val = ""
+            tc_number = ""
             
-        # Calculate Difference (PL Gross Weight - Invoice Total Finished Weight)
-        diff_val = ""
-        pl_gross = pl_gross_weights.get(inv_no, None)
-        pl_net = pl_net_weights.get(inv_no, None)
-        inv_total_fin = pl_net if pl_net is not None else invoice_totals.get(inv_no, None)
-        
-        if pl_gross is not None and inv_total_fin is not None:
-            diff_val = round(pl_gross - inv_total_fin, 3)
+        buyer = "M/S. DUNS"
+        standard = "GOTS"
         
         row_values = [
             idx,
             "Sri Shanmugavel Mills Private Limited Knitting Division",
             quality,
-            "", "", "", "", "", "",
+            standard, 
+            "", 
+            "", 
+            tc_number, # TC No(IDFL or Other CB)
+            "", 
+            inv_no,
             raw_val,
             style,
-            "15.000%",
-            buyer,
-            inv_no,
-            cert_val,
-            net_val,
-            net_val,
-            supp_val,
-            "S00055408" if idx == 1 else "",
-            "GOTS" if idx == 1 else "",
-            "551193" if idx == 1 else "",
-            "",
             fin_val,
-            diff_val
+            supp_val,
+            cert_val,
+            net_val, # Net Wt
+            net_val, # Gross Wt
+            "", # Transport Details
+            buyer
         ]
         
         for col_idx, val in enumerate(row_values, 1):
+
             cell = ws_out.cell(row=row_num, column=col_idx)
             cell.value = val
             cell.border = border
@@ -247,6 +262,7 @@ def process_invoice_files(invoice_paths, output_path):
                 
         row_num += 1
 
+    database.save_idfl_stock(idfl_stock)
     wb_out.save(output_path)
 
 @app.route('/', methods=['GET'])
@@ -284,6 +300,23 @@ def upload_file():
     except Exception as e:
         flash(f"Error processing files: {str(e)}")
         return redirect('/')
+
+
+@app.route('/api/weights', methods=['GET', 'POST'])
+def handle_weights():
+    if request.method == 'POST':
+        data = request.json
+        database.save_style_weights(data)
+        return jsonify({'status': 'success'})
+    return jsonify(database.get_style_weights())
+
+@app.route('/api/idfl-stock', methods=['GET', 'POST'])
+def handle_idfl_stock():
+    if request.method == 'POST':
+        data = request.json
+        database.save_idfl_stock(data)
+        return jsonify({'status': 'success'})
+    return jsonify(database.get_idfl_stock())
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

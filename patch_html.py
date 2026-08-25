@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+html_content = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -321,7 +321,7 @@
                         <td class="p-4 text-slate-300">${style}</td>
                         <td class="p-4 font-mono text-blue-400">${weight.toFixed(3)}</td>
                         <td class="p-4 text-right">
-                            <button onclick="openModal('${style.replace(/'/g, "\'")}', ${weight})" class="opacity-0 group-hover:opacity-100 px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs transition-all">Edit</button>
+                            <button onclick="openModal('${style.replace(/'/g, "\\'")}', ${weight})" class="opacity-0 group-hover:opacity-100 px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs transition-all">Edit</button>
                         </td>
                     </tr>
                 `).join('');
@@ -365,3 +365,7 @@
     </script>
 </body>
 </html>
+"""
+
+with open('e:/HEM/task/webapp/templates/index.html', 'w', encoding='utf-8') as f:
+    f.write(html_content)
