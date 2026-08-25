@@ -167,7 +167,7 @@ def process_invoice_files(invoice_paths, output_path):
         "Open Stock in Kgs.", "Raw Material used in Kg", "Product Name", "Loss(%)", 
         "Buyers Name", "Invoice No.", "Certified Weight(Kg)", "Net Wt(Kg)", "Gross Weight(Kg)", 
         "Supplementary Wt (Kg)", "Transport Details(BL No/Challan No)", "Standard", 
-        "IDFL TC No.", "Raw Material (Kg)", " Finished Product (kg)", "Difference"
+        "IDFL TC No.", "Raw Material (Kg)", " Finished Product (kg)"
     ]
     
     ws_out.append(headers)
@@ -216,41 +216,48 @@ def process_invoice_files(invoice_paths, output_path):
             matched_stock = find_matching_stock(quality, finished_prod)
             
             if matched_stock:
-                net_val = round(matched_stock['remaining_weight'], 3)
+                # Use finished_prod for net_val (output weights), tc_number for IDFL TC No.
+                net_val = fin_val
                 tc_number = matched_stock['tc_number']
                 
                 # Deduct weight
                 matched_stock['remaining_weight'] -= finished_prod
             else:
-                net_val = round(finished_prod, 3) # Fallback
+                net_val = fin_val
                 tc_number = ""
                 
         else:
             raw_val = cert_val = net_val = supp_val = fin_val = ""
             tc_number = ""
             
+        # Hardcoded overrides from original logic
         buyer = "M/S. DUNS"
         standard = "GOTS"
         
         row_values = [
-            idx,
-            "Sri Shanmugavel Mills Private Limited Knitting Division",
-            quality,
-            standard, 
-            "", 
-            "", 
-            tc_number, # TC No(IDFL or Other CB)
-            "", 
-            inv_no,
-            raw_val,
-            style,
-            fin_val,
-            supp_val,
-            cert_val,
-            net_val, # Net Wt
-            net_val, # Gross Wt
-            "", # Transport Details
-            buyer
+            idx, # 1: Sr.No
+            "Sri Shanmugavel Mills Private Limited Knitting Division", # 2: Suppliers Name
+            quality, # 3: Product Name and Quality
+            "", # 4: TC No
+            "", # 5: Certified Weight
+            "", # 6: Net Wt
+            "", # 7: Gross Weight
+            "", # 8: Lot No
+            "", # 9: Open Stock
+            raw_val, # 10: Raw Material used in Kg
+            style, # 11: Product Name (Style)
+            "21.000%", # 12: Loss(%)
+            buyer, # 13: Buyers Name
+            inv_no, # 14: Invoice No.
+            cert_val, # 15: Certified Weight
+            net_val, # 16: Net Wt
+            net_val, # 17: Gross Weight
+            supp_val, # 18: Supplementary Wt
+            "", # 19: Transport Details
+            standard, # 20: Standard
+            tc_number, # 21: IDFL TC No.
+            "", # 22: Raw Material
+            fin_val # 23: Finished Product
         ]
         
         for col_idx, val in enumerate(row_values, 1):
