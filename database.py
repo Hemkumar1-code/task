@@ -12,17 +12,17 @@ raw_url = os.environ.get('POSTGRES_URL', 'postgresql://postgres.zrdufnladqvwedqk
 
 # Force pg8000 driver for Vercel
 if raw_url.startswith('postgresql://'):
-    raw_url = raw_url.replace('postgresql://', 'postgresql+pg8000://', 1)
+    raw_url = raw_url.replace('postgresql://', 'postgresql://', 1)
 
 # Fix password URL encoding if it contains special characters like #
-if raw_url.startswith('postgresql+pg8000://'):
-    # Format is postgresql+pg8000://user:password@host:port/db
+if raw_url.startswith('postgresql://'):
+    # Format is postgresql://user:password@host:port/db
     try:
         parts = raw_url.split('@')
-        creds = parts[0].replace('postgresql+pg8000://', '')
+        creds = parts[0].replace('postgresql://', '')
         user, password = creds.split(':', 1)
         safe_password = urllib.parse.quote_plus(urllib.parse.unquote_plus(password))
-        DATABASE_URL = f"postgresql+pg8000://{user}:{safe_password}@{parts[1]}"
+        DATABASE_URL = f"postgresql://{user}:{safe_password}@{parts[1]}"
     except Exception:
         DATABASE_URL = raw_url
 else:
