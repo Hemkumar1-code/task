@@ -4,10 +4,11 @@ from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
-load_dotenv()
+basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '.env'))
 
-# Get the URL, default to a local sqlite fallback if not provided
-raw_url = os.environ.get('POSTGRES_URL', 'sqlite:///local_fallback.db')
+# Get the URL, default to the Supabase URL if Vercel doesn't load .env
+raw_url = os.environ.get('POSTGRES_URL', 'postgresql://postgres.zrdufnladqvwedqkuyau:HEMkumar33#@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres')
 
 # Force pg8000 driver for Vercel
 if raw_url.startswith('postgresql://'):
