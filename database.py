@@ -1,37 +1,99 @@
-import json
 import os
-import tempfile
+import urllib.parse
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.orm import declarative_base, sessionmaker
+from dotenv import load_dotenv
 
-# Define the base directory for DB files
-DB_DIR = os.path.join(tempfile.gettempdir(), 'app_data')
-if not os.path.exists(DB_DIR):
-    os.makedirs(DB_DIR, exist_ok=True)
+load_dotenv()
 
-STYLE_WEIGHTS_FILE = os.path.join(DB_DIR, 'style_weights.json')
-IDFL_STOCK_FILE = os.path.join(DB_DIR, 'idfl_stock.json')
+# Get the URL, default to a local sqlite fallback if not provided
+raw_url = os.environ.get('POSTGRES_URL', 'sqlite:///local_fallback.db')
 
-def load_json(filepath, default):
-    if os.path.exists(filepath):
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return default
-    return default
+# Fix password URL encoding if it contains special characters like #
+if 'postgresql://' in raw_url:
+    # Format is postgresql://user:password@host:port/db
+    try:
+        parts = raw_url.split('@')
+        creds = parts[0].replace('postgresql://', '')
+        user, password = creds.split(':', 1)
+        safe_password = urllib.parse.quote_plus(urllib.parse.unquote_plus(password))
+        DATABASE_URL = f"postgresql://{user}:{safe_password}@{parts[1]}"
+    except Exception:
+        DATABASE_URL = raw_url
+else:
+    DATABASE_URL = raw_url
 
-def save_json(filepath, data):
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+Base = declarative_base()
+
+class StyleWeight(Base):
+    __tablename__ = 'style_weights'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    style_name = Column(String, unique=True, nullable=False)
+    weight = Column(Float, nullable=False)
+
+class IdflStock(Base):
+    __tablename__ = 'idfl_stock'
+    id = Column(String, primary_key=True) # e.g. non_idfl_1
+    tc_number = Column(String, nullable=False)
+    products = Column(String, nullable=False)
+    remaining_weight = Column(Float, nullable=False)
+    sheet = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+
+# Initialize database
+Base.metadata.create_all(engine)
 
 def get_style_weights():
-    return load_json(STYLE_WEIGHTS_FILE, {})
+    with Session() as session:
+        weights = session.query(StyleWeight).all()
+        return {w.style_name: w.weight for w in weights}
 
-def save_style_weights(weights):
-    save_json(STYLE_WEIGHTS_FILE, weights)
+def save_style_weights(weights_dict):
+    with Session() as session:
+        for style, weight in weights_dict.items():
+            record = session.query(StyleWeight).filter_by(style_name=style).first()
+            if record:
+                record.weight = weight
+            else:
+                new_record = StyleWeight(style_name=style, weight=weight)
+                session.add(new_record)
+        session.commit()
 
 def get_idfl_stock():
-    # List of stock objects: {"id": "row_index", "tc_number": "", "products": "", "remaining_weight": float, "sheet": "NON-IDFL"}
-    return load_json(IDFL_STOCK_FILE, [])
+    with Session() as session:
+        stock = session.query(IdflStock).all()
+        result = []
+        for s in stock:
+            result.append({
+                'id': s.id,
+                'tc_number': s.tc_number,
+                'products': s.products,
+                'remaining_weight': s.remaining_weight,
+                'sheet': s.sheet,
+                'status': s.status
+            })
+        return result
 
-def save_idfl_stock(stock):
-    save_json(IDFL_STOCK_FILE, stock)
+def save_idfl_stock(stock_list):
+    with Session() as session:
+        # First, delete all existing if we are doing a full overwrite 
+        # (The UI handles full lists on init, and updates on consumption).
+        # Actually, since app.py updates the whole list and calls save_idfl_stock(idfl_stock)
+        # we can just upsert.
+        
+        # Clear existing table to ensure no stale data if list shrinks
+        session.query(IdflStock).delete()
+        
+        for s in stock_list:
+            new_record = IdflStock(
+                id=s['id'],
+                tc_number=s['tc_number'],
+                products=s['products'],
+                remaining_weight=s['remaining_weight'],
+                sheet=s['sheet'],
+                status=s['status']
+            )
+            session.add(new_record)
+        session.commit()
