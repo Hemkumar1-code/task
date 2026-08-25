@@ -10,14 +10,14 @@ load_dotenv()
 raw_url = os.environ.get('POSTGRES_URL', 'sqlite:///local_fallback.db')
 
 # Fix password URL encoding if it contains special characters like #
-if 'postgresql://' in raw_url:
-    # Format is postgresql://user:password@host:port/db
+if 'postgresql+pg8000://' in raw_url:
+    # Format is postgresql+pg8000://user:password@host:port/db
     try:
         parts = raw_url.split('@')
-        creds = parts[0].replace('postgresql://', '')
+        creds = parts[0].replace('postgresql+pg8000://', '')
         user, password = creds.split(':', 1)
         safe_password = urllib.parse.quote_plus(urllib.parse.unquote_plus(password))
-        DATABASE_URL = f"postgresql://{user}:{safe_password}@{parts[1]}"
+        DATABASE_URL = f"postgresql+pg8000://{user}:{safe_password}@{parts[1]}"
     except Exception:
         DATABASE_URL = raw_url
 else:
