@@ -312,7 +312,7 @@ def process_invoice_files(invoice_paths, output_path):
             inv_no, # 14: Invoice No.
             cert_val, # 15: Certified Weight
             net_val, # 16: Net Wt
-            net_val, # 17: Gross Weight
+            round(net_val + supp_val, 3) if isinstance(net_val, float) and isinstance(supp_val, float) else "", # 17: Gross Weight
             supp_val, # 18: Supplementary Wt
             "", # 19: Transport Details
             standard, # 20: Standard
