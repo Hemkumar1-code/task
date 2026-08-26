@@ -24,6 +24,7 @@ def process_invoice_files(invoice_paths, output_path):
             continue
 
     styles_data = []
+    style_db_cache = database.get_style_weights()
     
     for wb_in in workbooks:
         # 1. Try to extract exact PL Net Weight total for proportional scaling
@@ -77,18 +78,30 @@ def process_invoice_files(invoice_paths, output_path):
                 r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
                 try:
                     original_style = str(r[1]).strip()
-                    qty = float(r[5])
-                    net_wt = float(r[9])
+                    try:
+                        qty = float(r[5])
+                    except:
+                        qty = 0.0
+                    try:
+                        net_wt = float(r[9])
+                    except:
+                        net_wt = 0.0
                     
-                    if original_style and qty > 0 and net_wt > 0:
-                        wb_styles.append({
-                            'style': original_style,
-                            'qty': qty,
-                            'net_wt': net_wt,
-                            'inv_no': inv_no,
-                            'buyer': buyer,
-                            'quality': current_quality
-                        })
+                    if original_style and qty > 0:
+                        if net_wt > 0:
+                            style_db_cache[original_style] = net_wt
+                        else:
+                            net_wt = style_db_cache.get(original_style, 0.0)
+                        
+                        if net_wt > 0:
+                            wb_styles.append({
+                                'style': original_style,
+                                'qty': qty,
+                                'net_wt': net_wt,
+                                'inv_no': inv_no,
+                                'buyer': buyer,
+                                'quality': current_quality
+                            })
                 except:
                     pass
         
@@ -100,6 +113,7 @@ def process_invoice_files(invoice_paths, output_path):
             style_d['ratio'] = wb_ratio
             styles_data.append(style_d)
 
+    database.save_style_weights(style_db_cache)
     idfl_stock = database.get_idfl_stock()
     
     # Ensure original_weight is populated for the current session to avoid dynamic fallbacks
