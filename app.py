@@ -212,6 +212,10 @@ def process_invoice_files(invoice_paths, output_path):
     ws_out.column_dimensions['K'].width = 35
 
     row_num = 6
+    
+    # Sort by invoice number to keep items from the same invoice grouped together
+    styles_data.sort(key=lambda x: str(x.get('inv_no', '')))
+    
     for idx, data in enumerate(styles_data, 1):
         style = data['style']
         qty = data['qty']
@@ -260,7 +264,9 @@ def process_invoice_files(invoice_paths, output_path):
             original_weight = ""
             
         # Extract buyer or default
-        buyer = buyer if buyer != 'Unknown Buyer' else "M/S. A.B DUNS"
+        buyer = buyer if buyer != 'Unknown Buyer' else "M/S. AB DUNS"
+        buyer = buyer.replace('A.B', 'AB')
+        
         standard = "GOTS"
         
         row_values = [
