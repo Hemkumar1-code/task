@@ -80,13 +80,14 @@ def process_invoice_files(invoice_paths, output_path):
                     
                 r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
                 try:
-                    style = str(r[1]).strip()
-                    style = re.sub(r'\(SIZE:.*?\)', '', style, flags=re.IGNORECASE).strip()
+                    original_style = str(r[1]).strip()
+                    base_style = re.sub(r'\(SIZE:.*?\)', '', original_style, flags=re.IGNORECASE).strip()
                     qty = float(r[5])
                     
-                    if style and qty > 0:
+                    if original_style and qty > 0:
                         styles_data.append({
-                            'style': style,
+                            'style': original_style,
+                            'base_style': base_style,
                             'qty': qty,
                             'inv_no': inv_no,
                             'buyer': buyer,
@@ -190,12 +191,13 @@ def process_invoice_files(invoice_paths, output_path):
     row_num = 6
     for idx, data in enumerate(styles_data, 1):
         style = data['style']
+        base_style = data['base_style']
         qty = data['qty']
         buyer = data['buyer']
         inv_no = data['inv_no']
         quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
         
-        single_piece_wt = style_weights.get(style, None)
+        single_piece_wt = style_weights.get(base_style, None)
         
         if single_piece_wt is not None:
             finished_prod = single_piece_wt * qty
