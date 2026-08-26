@@ -263,9 +263,8 @@ def process_invoice_files(invoice_paths, output_path):
             tc_number = ""
             original_weight = ""
             
-        # Extract buyer or default
-        buyer = buyer if buyer != 'Unknown Buyer' else "M/S. AB DUNS"
-        buyer = buyer.replace('A.B', 'AB')
+        # Force buyer to be exactly M/S. AB DUNS for all invoices
+        buyer = "M/S. AB DUNS"
         
         standard = "GOTS"
         
