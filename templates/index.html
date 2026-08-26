@@ -91,7 +91,6 @@
             <nav class="flex gap-8 text-slate-300">
                 <button onclick="switchTab('generator')" id="nav-generator" class="nav-item active hover:text-white">Generator</button>
                 <button onclick="switchTab('idfl')" id="nav-idfl" class="nav-item hover:text-white">IDFL Stock DB</button>
-                <button onclick="switchTab('weights')" id="nav-weights" class="nav-item hover:text-white">Style Weights DB</button>
             </nav>
         </header>
 
@@ -183,59 +182,7 @@
             </div>
         </div>
 
-        <!-- Style Weights Tab -->
-        <div id="tab-weights" class="tab-content hidden transition-opacity duration-300">
-            <div class="glass-panel rounded-2xl p-8">
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h2 class="text-2xl font-semibold mb-1">Style Weight Database</h2>
-                        <p class="text-slate-400 text-sm">Single piece weights extracted from invoices</p>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="downloadCSV('weights')" class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm transition-colors shadow-lg shadow-green-500/25 flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                            Download CSV
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="table-container overflow-x-auto rounded-xl border border-slate-700">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-800/80 text-slate-300 text-sm">
-                                <th class="p-4 font-medium border-b border-slate-700 w-2/3">Style / Item Name</th>
-                                <th class="p-4 font-medium border-b border-slate-700">Single Piece Weight (Kg)</th>
-                                <th class="p-4 font-medium border-b border-slate-700 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="weightsTableBody" class="text-sm divide-y divide-slate-800">
-                            <!-- Populated via JS -->
-                            <tr><td colspan="3" class="p-8 text-center text-slate-500">Loading style weights...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Edit Weight Modal -->
-    <div id="editModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50">
-        <div class="glass-panel rounded-2xl p-6 w-full max-w-md mx-4">
-            <h3 class="text-xl font-semibold mb-4" id="modalTitle">Edit Weight</h3>
-            <div class="mb-4">
-                <label class="block text-sm text-slate-400 mb-1">Style</label>
-                <input type="text" id="editStyle" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500" readonly>
-            </div>
-            <div class="mb-6">
-                <label class="block text-sm text-slate-400 mb-1">Weight (Kg)</label>
-                <input type="number" step="0.001" id="editWeight" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500">
-            </div>
-            <div class="flex justify-end gap-3">
-                <button onclick="closeModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">Cancel</button>
-                <button onclick="saveWeight()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/25 transition-colors">Save</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         // --- Tab Switching Logic ---
@@ -247,7 +194,6 @@
             document.getElementById('nav-' + tabId).classList.add('active');
             
             if (tabId === 'idfl') loadIdflStock();
-            if (tabId === 'weights') loadStyleWeights();
         }
 
         // --- File Upload UI Logic ---
@@ -350,31 +296,7 @@
             }
         }
 
-        async function loadStyleWeights() {
-            try {
-                const res = await fetch('/api/weights');
-                currentWeights = await res.json();
-                const tbody = document.getElementById('weightsTableBody');
-                
-                const entries = Object.entries(currentWeights);
-                if (entries.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="p-8 text-center text-slate-500">No styles found. Upload invoices to build the database.</td></tr>';
-                    return;
-                }
-                
-                tbody.innerHTML = entries.map(([style, weight]) => `
-                    <tr class="hover:bg-slate-800/50 transition-colors group">
-                        <td class="p-4 text-slate-300">${style}</td>
-                        <td class="p-4 font-mono text-blue-400">${weight.toFixed(3)}</td>
-                        <td class="p-4 text-right">
-                            <button onclick="openModal('${style.replace(/'/g, "\'")}', ${weight})" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white shadow-lg hover:bg-slate-600 text-xs transition-all">Edit</button>
-                        </td>
-                    </tr>
-                `).join('');
-            } catch (e) {
-                console.error(e);
-            }
-        }
+
 
         
         // --- CSV Download Logic ---
@@ -394,16 +316,6 @@
                         csvContent += `${sheet},${tc},${products},${remaining},${status}\n`;
                     }
                 });
-            } else if (type === 'weights') {
-                csvContent += "Style / Item Name,Single Piece Weight (Kg)\n";
-                document.querySelectorAll('#weightsTableBody tr').forEach(row => {
-                    const cols = row.querySelectorAll('td');
-                    if (cols.length === 3) {
-                        const style = '"' + cols[0].innerText.trim().replace(/"/g, '""') + '"';
-                        const weight = cols[1].innerText.trim();
-                        csvContent += `${style},${weight}\n`;
-                    }
-                });
             }
             
             const encodedUri = encodeURI(csvContent);
@@ -415,38 +327,7 @@
             document.body.removeChild(link);
         }
 
-        // --- Modal Logic ---
-        function openModal(style, weight) {
-            document.getElementById('editStyle').value = style;
-            document.getElementById('editWeight').value = weight;
-            document.getElementById('editModal').classList.remove('hidden');
-            document.getElementById('editModal').classList.add('flex');
-        }
 
-        function closeModal() {
-            document.getElementById('editModal').classList.add('hidden');
-            document.getElementById('editModal').classList.remove('flex');
-        }
-
-        async function saveWeight() {
-            const style = document.getElementById('editStyle').value;
-            const weight = parseFloat(document.getElementById('editWeight').value);
-            
-            if (style && !isNaN(weight)) {
-                currentWeights[style] = weight;
-                try {
-                    await fetch('/api/weights', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(currentWeights)
-                    });
-                    closeModal();
-                    loadStyleWeights();
-                } catch (e) {
-                    alert('Error saving weight');
-                }
-            }
-        }
     </script>
 </body>
 </html>

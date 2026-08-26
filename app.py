@@ -13,8 +13,6 @@ UPLOAD_FOLDER = tempfile.gettempdir()
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def process_invoice_files(invoice_paths, output_path):
-    style_weights = database.get_style_weights()
-    
     # Cache workbooks in memory to avoid reading from disk multiple times
     workbooks = []
     
@@ -24,23 +22,6 @@ def process_invoice_files(invoice_paths, output_path):
             workbooks.append(wb_in)
         except Exception as e:
             continue
-            
-        for si in range(wb_in.nsheets):
-            ws_in = wb_in.sheet_by_index(si)
-            if ws_in.name == 'PL': continue
-            for i in range(ws_in.nrows):
-                r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
-                try:
-                    style = str(r[1]).strip()
-                    qty = float(r[5])
-                    net_wt = float(r[9])
-                    if style and qty > 0 and net_wt > 0:
-                        existing_wt = style_weights.get(style, 0)
-                        style_weights[style] = max(existing_wt, net_wt)
-                except:
-                    pass
-
-    database.save_style_weights(style_weights)
 
     styles_data = []
     
@@ -200,7 +181,7 @@ def process_invoice_files(invoice_paths, output_path):
         inv_no = data['inv_no']
         quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
         
-        single_piece_wt = data.get('net_wt') or style_weights.get(style, None)
+        single_piece_wt = data.get('net_wt')
         
         if single_piece_wt is not None:
             finished_prod = single_piece_wt * qty
@@ -319,14 +300,6 @@ def upload_file():
         flash(f"Error processing files: {str(e)}")
         return redirect('/')
 
-
-@app.route('/api/weights', methods=['GET', 'POST'])
-def handle_weights():
-    if request.method == 'POST':
-        data = request.json
-        database.save_style_weights(data)
-        return jsonify({'status': 'success'})
-    return jsonify(database.get_style_weights())
 
 @app.route('/api/idfl-stock', methods=['GET', 'POST'])
 def handle_idfl_stock():
