@@ -81,11 +81,13 @@ def process_invoice_files(invoice_paths, output_path):
                 try:
                     original_style = str(r[1]).strip()
                     qty = float(r[5])
+                    net_wt = float(r[9])
                     
-                    if original_style and qty > 0:
+                    if original_style and qty > 0 and net_wt > 0:
                         styles_data.append({
                             'style': original_style,
                             'qty': qty,
+                            'net_wt': net_wt,
                             'inv_no': inv_no,
                             'buyer': buyer,
                             'quality': current_quality
@@ -198,7 +200,7 @@ def process_invoice_files(invoice_paths, output_path):
         inv_no = data['inv_no']
         quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
         
-        single_piece_wt = style_weights.get(style, None)
+        single_piece_wt = data.get('net_wt') or style_weights.get(style, None)
         
         if single_piece_wt is not None:
             finished_prod = single_piece_wt * qty
