@@ -32,7 +32,6 @@ def process_invoice_files(invoice_paths, output_path):
                 r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
                 try:
                     style = str(r[1]).strip()
-                    style = re.sub(r'\(SIZE:.*?\)', '', style, flags=re.IGNORECASE).strip()
                     qty = float(r[5])
                     net_wt = float(r[9])
                     if style and qty > 0 and net_wt > 0:
@@ -81,13 +80,11 @@ def process_invoice_files(invoice_paths, output_path):
                 r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
                 try:
                     original_style = str(r[1]).strip()
-                    base_style = re.sub(r'\(SIZE:.*?\)', '', original_style, flags=re.IGNORECASE).strip()
                     qty = float(r[5])
                     
                     if original_style and qty > 0:
                         styles_data.append({
                             'style': original_style,
-                            'base_style': base_style,
                             'qty': qty,
                             'inv_no': inv_no,
                             'buyer': buyer,
@@ -191,13 +188,12 @@ def process_invoice_files(invoice_paths, output_path):
     row_num = 6
     for idx, data in enumerate(styles_data, 1):
         style = data['style']
-        base_style = data['base_style']
         qty = data['qty']
         buyer = data['buyer']
         inv_no = data['inv_no']
         quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
         
-        single_piece_wt = style_weights.get(base_style, None)
+        single_piece_wt = style_weights.get(style, None)
         
         if single_piece_wt is not None:
             finished_prod = single_piece_wt * qty
@@ -221,16 +217,19 @@ def process_invoice_files(invoice_paths, output_path):
                 # Use finished_prod for net_val (output weights), tc_number for IDFL TC No.
                 net_val = fin_val
                 tc_number = matched_stock['tc_number']
+                original_weight = matched_stock.get('original_weight', matched_stock['remaining_weight'])
                 
                 # Deduct weight
                 matched_stock['remaining_weight'] -= finished_prod
             else:
                 net_val = fin_val
                 tc_number = ""
+                original_weight = ""
                 
         else:
             raw_val = cert_val = net_val = supp_val = fin_val = ""
             tc_number = ""
+            original_weight = ""
             
         # Hardcoded overrides from original logic
         buyer = "M/S. DUNS"
@@ -241,9 +240,9 @@ def process_invoice_files(invoice_paths, output_path):
             "Sri Shanmugavel Mills Private Limited Knitting Division", # 2: Suppliers Name
             quality, # 3: Product Name and Quality
             tc_number, # 4: TC No(IDFL or Other CB)
-            "", # 5: Certified Weight
-            "", # 6: Net Wt
-            "", # 7: Gross Weight
+            original_weight, # 5: Certified Weight
+            original_weight, # 6: Net Wt
+            original_weight, # 7: Gross Weight
             "", # 8: Lot No
             "", # 9: Open Stock
             raw_val, # 10: Raw Material used in Kg
@@ -361,6 +360,7 @@ def upload_idfl():
                     'sheet': 'NON-IDFL',
                     'tc_number': tc,
                     'remaining_weight': rem,
+                    'original_weight': rem,
                     'products': prod,
                     'status': 'Active'
                 })
@@ -378,6 +378,7 @@ def upload_idfl():
                     'sheet': 'IDFL',
                     'tc_number': tc,
                     'remaining_weight': rem,
+                    'original_weight': rem,
                     'products': prod,
                     'status': str(row[3]).strip() if row[3] else 'Active'
                 })
