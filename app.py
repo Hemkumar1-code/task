@@ -338,50 +338,99 @@ def upload_idfl():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
         
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'uploaded_idfl.xlsx')
+    ext = '.xls' if file.filename.lower().endswith('.xls') else '.xlsx'
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'uploaded_idfl' + ext)
     file.save(filepath)
     
     # Parse it
     try:
         import xlrd, openpyxl
-        wb = openpyxl.load_workbook(filepath, data_only=True)
         stock = []
-        if 'NON-IDFL' in wb.sheetnames:
-            ws = wb['NON-IDFL']
-            for i, row in enumerate(ws.iter_rows(min_row=5, values_only=True)):
-                if not row[1] or not row[3]: continue
-                tc = str(row[1]).strip()
-                if tc.upper() == 'TC NUMBER': continue
-                try: rem = float(row[2])
-                except: continue
-                prod = str(row[3]).strip()
-                stock.append({
-                    'id': f'non_idfl_{i}',
-                    'sheet': 'NON-IDFL',
-                    'tc_number': tc,
-                    'remaining_weight': rem,
-                    'original_weight': rem,
-                    'products': prod,
-                    'status': 'Active'
-                })
-        if 'IDFL' in wb.sheetnames:
-            ws = wb['IDFL']
-            for i, row in enumerate(ws.iter_rows(min_row=7, values_only=True)):
-                if not row[2] or not row[6]: continue
-                tc = str(row[2]).strip()
-                if tc.upper() == 'TC NUMBER': continue
-                try: rem = float(row[5])
-                except: continue
-                prod = str(row[6]).strip()
-                stock.append({
-                    'id': f'idfl_{i}',
-                    'sheet': 'IDFL',
-                    'tc_number': tc,
-                    'remaining_weight': rem,
-                    'original_weight': rem,
-                    'products': prod,
-                    'status': str(row[3]).strip() if row[3] else 'Active'
-                })
+        
+        if ext == '.xls':
+            wb = xlrd.open_workbook(filepath)
+            sheetnames = wb.sheet_names()
+            if 'NON-IDFL' in sheetnames:
+                ws = wb.sheet_by_name('NON-IDFL')
+                for i in range(4, ws.nrows):
+                    try:
+                        r1 = str(ws.cell_value(i, 1)).strip()
+                        r2 = ws.cell_value(i, 2)
+                        r3 = str(ws.cell_value(i, 3)).strip()
+                        if not r1 or not r3: continue
+                        if r1.upper() == 'TC NUMBER': continue
+                        try: rem = float(r2)
+                        except: continue
+                        stock.append({
+                            'id': f'non_idfl_{i}',
+                            'sheet': 'NON-IDFL',
+                            'tc_number': r1,
+                            'remaining_weight': rem,
+                            'original_weight': rem,
+                            'products': r3,
+                            'status': 'Active'
+                        })
+                    except: pass
+            if 'IDFL' in sheetnames:
+                ws = wb.sheet_by_name('IDFL')
+                for i in range(6, ws.nrows):
+                    try:
+                        r2 = str(ws.cell_value(i, 2)).strip()
+                        r3 = str(ws.cell_value(i, 3)).strip()
+                        r5 = ws.cell_value(i, 5)
+                        r6 = str(ws.cell_value(i, 6)).strip()
+                        if not r2 or not r6: continue
+                        if r2.upper() == 'TC NUMBER': continue
+                        try: rem = float(r5)
+                        except: continue
+                        stock.append({
+                            'id': f'idfl_{i}',
+                            'sheet': 'IDFL',
+                            'tc_number': r2,
+                            'remaining_weight': rem,
+                            'original_weight': rem,
+                            'products': r6,
+                            'status': r3 if r3 else 'Active'
+                        })
+                    except: pass
+        else:
+            wb = openpyxl.load_workbook(filepath, data_only=True)
+            if 'NON-IDFL' in wb.sheetnames:
+                ws = wb['NON-IDFL']
+                for i, row in enumerate(ws.iter_rows(min_row=5, values_only=True)):
+                    if not row[1] or not row[3]: continue
+                    tc = str(row[1]).strip()
+                    if tc.upper() == 'TC NUMBER': continue
+                    try: rem = float(row[2])
+                    except: continue
+                    prod = str(row[3]).strip()
+                    stock.append({
+                        'id': f'non_idfl_{i}',
+                        'sheet': 'NON-IDFL',
+                        'tc_number': tc,
+                        'remaining_weight': rem,
+                        'original_weight': rem,
+                        'products': prod,
+                        'status': 'Active'
+                    })
+            if 'IDFL' in wb.sheetnames:
+                ws = wb['IDFL']
+                for i, row in enumerate(ws.iter_rows(min_row=7, values_only=True)):
+                    if not row[2] or not row[6]: continue
+                    tc = str(row[2]).strip()
+                    if tc.upper() == 'TC NUMBER': continue
+                    try: rem = float(row[5])
+                    except: continue
+                    prod = str(row[6]).strip()
+                    stock.append({
+                        'id': f'idfl_{i}',
+                        'sheet': 'IDFL',
+                        'tc_number': tc,
+                        'remaining_weight': rem,
+                        'original_weight': rem,
+                        'products': prod,
+                        'status': str(row[3]).strip() if row[3] else 'Active'
+                    })
         
         database.save_idfl_stock(stock)
         return jsonify({'status': 'success', 'records': len(stock)})
