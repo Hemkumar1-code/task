@@ -91,6 +91,7 @@
             <nav class="flex gap-8 text-slate-300">
                 <button onclick="switchTab('generator')" id="nav-generator" class="nav-item active hover:text-white">Generator</button>
                 <button onclick="switchTab('idfl')" id="nav-idfl" class="nav-item hover:text-white">IDFL Stock DB</button>
+                <button onclick="switchTab('styles')" id="nav-styles" class="nav-item hover:text-white">Style Weights</button>
             </nav>
         </header>
 
@@ -184,7 +185,35 @@
             </div>
         </div>
 
-
+        <!-- Style Weights Tab -->
+        <div id="tab-styles" class="tab-content hidden transition-opacity duration-300">
+            <div class="glass-panel rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-1">Style Weights Reference</h2>
+                        <p class="text-slate-400 text-sm">View weights of processed styles used for fallback calculation</p>
+                    </div>
+                    <button onclick="downloadCSV('styles')" class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm transition-colors shadow-lg shadow-green-500/25 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download CSV
+                    </button>
+                </div>
+                <div class="table-container overflow-x-auto rounded-xl border border-slate-700">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-800/80 text-slate-300 text-sm">
+                                <th class="p-4 font-medium border-b border-slate-700">Style Name</th>
+                                <th class="p-4 font-medium border-b border-slate-700 text-right">Net Weight (Kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stylesTableBody" class="text-sm divide-y divide-slate-800">
+                            <!-- Populated via JS -->
+                            <tr><td colspan="2" class="p-8 text-center text-slate-500">Loading style data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
     <script>
         // --- Tab Switching Logic ---
@@ -196,6 +225,7 @@
             document.getElementById('nav-' + tabId).classList.add('active');
             
             if (tabId === 'idfl') loadIdflStock();
+            if (tabId === 'styles') loadStyleWeights();
         }
 
         // --- File Upload UI Logic ---
@@ -295,20 +325,40 @@
                         </td>
                     </tr>
                 `).join('');
-            } catch (e) {
-                console.error(e);
+            } catch(err) {
+                console.error('Failed to load IDFL stock', err);
             }
         }
 
+        async function loadStyleWeights() {
+            try {
+                const res = await fetch('/api/style-weights');
+                const data = await res.json();
+                const tbody = document.getElementById('stylesTableBody');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" class="p-8 text-center text-slate-500">No style weights available. Process an invoice to populate.</td></tr>';
+                    return;
+                }
 
+                tbody.innerHTML = data.map(row => {
+                    return `
+                        <tr class="hover:bg-slate-800/50 transition-colors">
+                            <td class="p-4 text-slate-300 font-medium">${row.style}</td>
+                            <td class="p-4 font-mono text-blue-400 font-semibold text-right">${parseFloat(row.weight).toFixed(3)}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch(err) {
+                console.error('Failed to load style weights', err);
+            }
+        }
 
-        
         // --- CSV Download Logic ---
         function downloadCSV(type) {
-            let csvContent = "data:text/csv;charset=utf-8,";
-            
+            let csv = [];
             if (type === 'idfl') {
-                csvContent += "Sheet,TC Number,Products,Initial (Kg),Used (Kg),Remaining (Kg),Status\n";
+                csv.push(['Sheet', 'TC Number', 'Products', 'Initial (Kg)', 'Used (Kg)', 'Remaining (Kg)', 'Status']);
                 document.querySelectorAll('#idflTableBody tr').forEach(row => {
                     const cols = row.querySelectorAll('td');
                     if (cols.length === 7) {
@@ -319,20 +369,30 @@
                         const usedWt = cols[4].innerText.trim();
                         const remaining = cols[5].innerText.trim();
                         const status = cols[6].innerText.trim();
-                        csvContent += `${sheet},${tc},${products},${initWt},${usedWt},${remaining},${status}\n`;
+                        csv.push([sheet, tc, products, initWt, usedWt, remaining, status]);
+                    }
+                });
+            } else if (type === 'styles') {
+                csv.push(['Style Name', 'Net Weight (Kg)']);
+                document.querySelectorAll('#stylesTableBody tr').forEach(row => {
+                    const cols = row.querySelectorAll('td');
+                    if (cols.length === 2) {
+                        const style = '"' + cols[0].innerText.trim().replace(/"/g, '""') + '"';
+                        const weight = cols[1].innerText.trim();
+                        csv.push([style, weight]);
                     }
                 });
             }
             
+            const csvContent = "data:text/csv;charset=utf-8," + csv.map(e => e.join(',')).join('\n');
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `${type}_export_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute("download", type === 'idfl' ? "IDFL_STOCK_DB.csv" : "STYLE_WEIGHTS.csv");
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
-
 
     </script>
 </body>

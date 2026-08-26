@@ -355,6 +355,15 @@ def handle_idfl_stock():
     return jsonify(database.get_idfl_stock())
 
 
+@app.route('/api/style-weights', methods=['GET'])
+def api_style_weights():
+    weights = database.get_style_weights()
+    # Format as list of objects for frontend table
+    data = [{'style': k, 'weight': v} for k, v in weights.items()]
+    # Sort alphabetically by style name
+    data.sort(key=lambda x: x['style'])
+    return jsonify(data)
+
 @app.route('/api/upload-idfl', methods=['POST'])
 def upload_idfl():
     if 'idfl_file' not in request.files:
