@@ -25,10 +25,29 @@ def process_invoice_files(invoice_paths, output_path):
 
     styles_data = []
     
-    pl_gross_weights = {}
-    pl_net_weights = {}
+    total_pl_net = 0.0
     
     for wb_in in workbooks:
+        # 1. Try to extract exact PL Net Weight total for proportional scaling
+        if 'PL' in wb_in.sheet_names():
+            ws_pl = wb_in.sheet_by_name('PL')
+            pl_found = False
+            for i in range(max(0, ws_pl.nrows - 50), ws_pl.nrows):
+                for j in range(ws_pl.ncols):
+                    val = str(ws_pl.cell_value(i, j)).strip().upper()
+                    if 'NET WEIGHT' in val or 'N.W' in val:
+                        for k in range(j+1, ws_pl.ncols):
+                            try:
+                                num = float(ws_pl.cell_value(i, k))
+                                if num > 0:
+                                    total_pl_net += num
+                                    pl_found = True
+                                    break
+                            except: pass
+                        if pl_found: break
+                if pl_found: break
+                
+        # 2. Extract styles from INV sheets
         inv_no = 'Unknown Invoice'
         buyer = 'Unknown Buyer'
         
@@ -173,6 +192,9 @@ def process_invoice_files(invoice_paths, output_path):
     ws_out.column_dimensions['J'].width = 30
     ws_out.column_dimensions['K'].width = 35
 
+    total_inv_net = sum(d['qty'] * d['net_wt'] for d in styles_data)
+    ratio = total_pl_net / total_inv_net if total_pl_net > 0 and total_inv_net > 0 else 1.0
+
     row_num = 6
     for idx, data in enumerate(styles_data, 1):
         style = data['style']
@@ -184,7 +206,8 @@ def process_invoice_files(invoice_paths, output_path):
         single_piece_wt = data.get('net_wt')
         
         if single_piece_wt is not None:
-            finished_prod = single_piece_wt * qty
+            # Scale proportionally so the sum of fin_val matches the PL sheet total exactly
+            finished_prod = single_piece_wt * qty * ratio
             
             # Loss percentage increased to 21%
             loss_pct = 0.21
