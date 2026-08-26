@@ -301,7 +301,7 @@ def process_invoice_files(invoice_paths, output_path):
             original_weight, # 6: Net Wt
             original_weight, # 7: Gross Weight
             "", # 8: Lot No
-            original_weight, # 9: Open Stock
+            "", # 9: Open Stock
             raw_val, # 10: Raw Material used in Kg
             style, # 11: Product Name (Style)
             "21.000%", # 12: Loss(%)
