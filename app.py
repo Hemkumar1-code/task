@@ -25,7 +25,28 @@ def process_invoice_files(invoice_paths, output_path):
 
     styles_data = []
     style_db_cache = database.get_style_weights()
-    
+
+    # Pass 1: Pre-scan all uploaded invoices to find and cache any available style weights
+    # This ensures that if a style is missing its weight in Invoice A but has it in Invoice B,
+    # processing Invoice A will still succeed using Invoice B's weight.
+    for wb_in in workbooks:
+        for si in range(wb_in.nsheets):
+            ws_in = wb_in.sheet_by_index(si)
+            if ws_in.name == 'PL': continue
+            for i in range(ws_in.nrows):
+                try:
+                    r = [ws_in.cell_value(i,j) for j in range(ws_in.ncols)]
+                    original_style = str(r[1]).strip()
+                    try:
+                        net_wt = float(r[9])
+                    except:
+                        net_wt = 0.0
+                    
+                    if original_style and net_wt > 0:
+                        style_db_cache[original_style] = net_wt
+                except: pass
+
+    # Pass 2: Actual extraction and calculation
     for wb_in in workbooks:
         # 1. Try to extract exact PL Net Weight total for proportional scaling
         wb_pl_net = 0.0
