@@ -1,4 +1,5 @@
 import os
+import math
 import xlrd
 import openpyxl
 import database
@@ -56,7 +57,7 @@ def process_invoice_files(invoice_paths, output_path):
             for i in range(max(0, ws_pl.nrows - 50), ws_pl.nrows):
                 for j in range(ws_pl.ncols):
                     val = str(ws_pl.cell_value(i, j)).strip().upper()
-                    if 'NET WEIGHT' in val or 'N.W' in val:
+                    if any(x in val for x in ['NET WEIGHT', 'N.W', 'NET WT', 'NETT WT']):
                         for k in range(j+1, ws_pl.ncols):
                             try:
                                 num = float(ws_pl.cell_value(i, k))
@@ -261,7 +262,9 @@ def process_invoice_files(invoice_paths, output_path):
             raw_val = round(raw_used, 3)
             cert_val = round(cert_wt, 3)
             supp_val = round(supp_wt, 3)
-            fin_val = round(finished_prod, 3)
+            
+            # Floor to 3 decimal places so the sum NEVER exceeds the PL total
+            fin_val = math.floor(finished_prod * 1000) / 1000.0
             
             # FIFO Stock Logic
             matched_stock = find_matching_stock(quality, raw_val)
