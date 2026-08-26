@@ -271,6 +271,7 @@ def process_invoice_files(invoice_paths, output_path):
                 net_val = fin_val
                 tc_number = matched_stock['tc_number']
                 original_weight = matched_stock['original_weight']
+                open_stock = round(matched_stock['remaining_weight'], 3)
                 
                 # Deduct weight
                 matched_stock['remaining_weight'] -= raw_val
@@ -278,11 +279,13 @@ def process_invoice_files(invoice_paths, output_path):
                 net_val = fin_val
                 tc_number = ""
                 original_weight = ""
+                open_stock = ""
                 
         else:
             raw_val = cert_val = net_val = supp_val = fin_val = ""
             tc_number = ""
             original_weight = ""
+            open_stock = ""
             
         # Force buyer to be exactly M/S. AB DUNS for all invoices
         buyer = "M/S. AB DUNS"
@@ -298,7 +301,7 @@ def process_invoice_files(invoice_paths, output_path):
             original_weight, # 6: Net Wt
             original_weight, # 7: Gross Weight
             "", # 8: Lot No
-            "", # 9: Open Stock
+            open_stock, # 9: Open Stock
             raw_val, # 10: Raw Material used in Kg
             style, # 11: Product Name (Style)
             "21.000%", # 12: Loss(%)
