@@ -238,7 +238,7 @@ def process_invoice_files(invoice_paths, output_path):
             idx, # 1: Sr.No
             "Sri Shanmugavel Mills Private Limited Knitting Division", # 2: Suppliers Name
             quality, # 3: Product Name and Quality
-            "", # 4: TC No
+            tc_number, # 4: TC No(IDFL or Other CB)
             "", # 5: Certified Weight
             "", # 6: Net Wt
             "", # 7: Gross Weight
@@ -255,7 +255,7 @@ def process_invoice_files(invoice_paths, output_path):
             supp_val, # 18: Supplementary Wt
             "", # 19: Transport Details
             standard, # 20: Standard
-            tc_number, # 21: IDFL TC No.
+            "", # 21: IDFL TC No.
             "", # 22: Raw Material
             fin_val # 23: Finished Product
         ]
