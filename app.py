@@ -95,6 +95,11 @@ def process_invoice_files(invoice_paths, output_path):
 
     idfl_stock = database.get_idfl_stock()
     
+    # Ensure original_weight is populated for the current session to avoid dynamic fallbacks
+    for stock in idfl_stock:
+        if 'original_weight' not in stock:
+            stock['original_weight'] = stock['remaining_weight']
+    
     def find_matching_stock(quality, required_weight):
         # Determine target product string and sheet based on quality
         q = quality.upper()
@@ -211,16 +216,16 @@ def process_invoice_files(invoice_paths, output_path):
             fin_val = round(finished_prod, 3)
             
             # FIFO Stock Logic
-            matched_stock = find_matching_stock(quality, finished_prod)
+            matched_stock = find_matching_stock(quality, raw_val)
             
             if matched_stock:
                 # Use finished_prod for net_val (output weights), tc_number for IDFL TC No.
                 net_val = fin_val
                 tc_number = matched_stock['tc_number']
-                original_weight = matched_stock.get('original_weight', matched_stock['remaining_weight'])
+                original_weight = matched_stock['original_weight']
                 
                 # Deduct weight
-                matched_stock['remaining_weight'] -= finished_prod
+                matched_stock['remaining_weight'] -= raw_val
             else:
                 net_val = fin_val
                 tc_number = ""
@@ -231,8 +236,8 @@ def process_invoice_files(invoice_paths, output_path):
             tc_number = ""
             original_weight = ""
             
-        # Hardcoded overrides from original logic
-        buyer = "M/S. DUNS"
+        # Extract buyer or default
+        buyer = buyer if buyer != 'Unknown Buyer' else "M/S. A.B DUNS"
         standard = "GOTS"
         
         row_values = [
