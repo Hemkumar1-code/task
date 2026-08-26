@@ -86,6 +86,7 @@ def get_idfl_stock():
                 'products': s.products,
                 'initial_weight': init_wt,
                 'used_weight': init_wt - s.remaining_weight,
+                'original_weight': init_wt,
                 'remaining_weight': s.remaining_weight,
                 'sheet': s.sheet,
                 'status': s.status
