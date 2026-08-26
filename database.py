@@ -1,6 +1,6 @@
 import os
 import urllib.parse
-from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy import create_engine, Column, Integer, String, Float, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
@@ -53,7 +53,8 @@ try:
     Base.metadata.create_all(engine)
     # Add column if missing
     with engine.connect() as conn:
-        conn.execute("ALTER TABLE idfl_stock ADD COLUMN initial_weight FLOAT")
+        conn.execute(text("ALTER TABLE idfl_stock ADD COLUMN initial_weight FLOAT"))
+        conn.commit()
 except Exception as e:
     print(f"Warning: Could not initialize database tables: {e}")
 
