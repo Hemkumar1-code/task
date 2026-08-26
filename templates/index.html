@@ -169,13 +169,15 @@
                                 <th class="p-4 font-medium border-b border-slate-700">Sheet</th>
                                 <th class="p-4 font-medium border-b border-slate-700">TC Number</th>
                                 <th class="p-4 font-medium border-b border-slate-700">Products</th>
+                                <th class="p-4 font-medium border-b border-slate-700 text-right">Initial (Kg)</th>
+                                <th class="p-4 font-medium border-b border-slate-700 text-right">Used (Kg)</th>
                                 <th class="p-4 font-medium border-b border-slate-700 text-right">Remaining (Kg)</th>
                                 <th class="p-4 font-medium border-b border-slate-700">Status</th>
                             </tr>
                         </thead>
                         <tbody id="idflTableBody" class="text-sm divide-y divide-slate-800">
                             <!-- Populated via JS -->
-                            <tr><td colspan="5" class="p-8 text-center text-slate-500">Loading stock data...</td></tr>
+                            <tr><td colspan="7" class="p-8 text-center text-slate-500">Loading stock data...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -274,7 +276,7 @@
                 const tbody = document.getElementById('idflTableBody');
                 
                 if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500">No stock data available. Upload the IDFL Excel file to initialize.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-500">No stock data available. Upload the IDFL Excel file to initialize.</td></tr>';
                     return;
                 }
                 
@@ -283,6 +285,8 @@
                         <td class="p-4"><span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-300 border border-slate-700">${item.sheet}</span></td>
                         <td class="p-4 font-medium text-slate-200">${item.tc_number}</td>
                         <td class="p-4 text-slate-400 truncate max-w-xs" title="${item.products}">${item.products}</td>
+                        <td class="p-4 text-right font-mono text-slate-300">${(item.initial_weight || item.remaining_weight).toFixed(3)}</td>
+                        <td class="p-4 text-right font-mono text-orange-400">${(item.used_weight || 0).toFixed(3)}</td>
                         <td class="p-4 text-right font-mono ${item.remaining_weight > 0 ? 'text-green-400' : 'text-red-400'}">${item.remaining_weight.toFixed(3)}</td>
                         <td class="p-4">
                             <span class="px-2 py-1 rounded-full text-xs ${item.status === 'Exhausted' || item.remaining_weight <= 0 ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}">
@@ -304,16 +308,18 @@
             let csvContent = "data:text/csv;charset=utf-8,";
             
             if (type === 'idfl') {
-                csvContent += "Sheet,TC Number,Products,Remaining (Kg),Status\n";
+                csvContent += "Sheet,TC Number,Products,Initial (Kg),Used (Kg),Remaining (Kg),Status\n";
                 document.querySelectorAll('#idflTableBody tr').forEach(row => {
                     const cols = row.querySelectorAll('td');
-                    if (cols.length === 5) {
+                    if (cols.length === 7) {
                         const sheet = cols[0].innerText.trim();
                         const tc = cols[1].innerText.trim();
                         const products = '"' + cols[2].innerText.trim().replace(/"/g, '""') + '"';
-                        const remaining = cols[3].innerText.trim();
-                        const status = cols[4].innerText.trim();
-                        csvContent += `${sheet},${tc},${products},${remaining},${status}\n`;
+                        const initWt = cols[3].innerText.trim();
+                        const usedWt = cols[4].innerText.trim();
+                        const remaining = cols[5].innerText.trim();
+                        const status = cols[6].innerText.trim();
+                        csvContent += `${sheet},${tc},${products},${initWt},${usedWt},${remaining},${status}\n`;
                     }
                 });
             }

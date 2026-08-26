@@ -43,6 +43,7 @@ class IdflStock(Base):
     id = Column(String, primary_key=True) # e.g. non_idfl_1
     tc_number = Column(String, nullable=False)
     products = Column(String, nullable=False)
+    initial_weight = Column(Float, nullable=True)
     remaining_weight = Column(Float, nullable=False)
     sheet = Column(String, nullable=False)
     status = Column(String, nullable=False)
@@ -50,6 +51,9 @@ class IdflStock(Base):
 try:
     # Initialize database
     Base.metadata.create_all(engine)
+    # Add column if missing
+    with engine.connect() as conn:
+        conn.execute("ALTER TABLE idfl_stock ADD COLUMN initial_weight FLOAT")
 except Exception as e:
     print(f"Warning: Could not initialize database tables: {e}")
 
@@ -74,10 +78,13 @@ def get_idfl_stock():
         stock = session.query(IdflStock).all()
         result = []
         for s in stock:
+            init_wt = s.initial_weight if s.initial_weight is not None else s.remaining_weight
             result.append({
                 'id': s.id,
                 'tc_number': s.tc_number,
                 'products': s.products,
+                'initial_weight': init_wt,
+                'used_weight': init_wt - s.remaining_weight,
                 'remaining_weight': s.remaining_weight,
                 'sheet': s.sheet,
                 'status': s.status
@@ -99,6 +106,7 @@ def save_idfl_stock(stock_list):
                 id=s['id'],
                 tc_number=s['tc_number'],
                 products=s['products'],
+                initial_weight=s.get('initial_weight', s['remaining_weight']),
                 remaining_weight=s['remaining_weight'],
                 sheet=s['sheet'],
                 status=s['status']
