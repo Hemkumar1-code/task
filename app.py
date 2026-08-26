@@ -25,10 +25,9 @@ def process_invoice_files(invoice_paths, output_path):
 
     styles_data = []
     
-    total_pl_net = 0.0
-    
     for wb_in in workbooks:
         # 1. Try to extract exact PL Net Weight total for proportional scaling
+        wb_pl_net = 0.0
         if 'PL' in wb_in.sheet_names():
             ws_pl = wb_in.sheet_by_name('PL')
             pl_found = False
@@ -40,7 +39,7 @@ def process_invoice_files(invoice_paths, output_path):
                             try:
                                 num = float(ws_pl.cell_value(i, k))
                                 if num > 0:
-                                    total_pl_net += num
+                                    wb_pl_net += num
                                     pl_found = True
                                     break
                             except: pass
@@ -50,7 +49,9 @@ def process_invoice_files(invoice_paths, output_path):
         # 2. Extract styles from INV sheets
         inv_no = 'Unknown Invoice'
         buyer = 'Unknown Buyer'
+        current_quality = "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )"
         
+        wb_styles = []
         for si in range(wb_in.nsheets):
             ws_in = wb_in.sheet_by_index(si)
             if ws_in.name.startswith('INV'):
@@ -64,13 +65,9 @@ def process_invoice_files(invoice_paths, output_path):
                     if r[0].startswith('M/S.') and 'SREE KANAGA' not in r[0] and buyer == 'Unknown Buyer':
                         buyer = r[0]
         
-        
-
         for si in range(wb_in.nsheets):
             ws_in = wb_in.sheet_by_index(si)
             if ws_in.name == 'PL': continue
-            
-            current_quality = "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )"
             
             for i in range(ws_in.nrows):
                 col0 = str(ws_in.cell_value(i, 0)).strip()
@@ -84,7 +81,7 @@ def process_invoice_files(invoice_paths, output_path):
                     net_wt = float(r[9])
                     
                     if original_style and qty > 0 and net_wt > 0:
-                        styles_data.append({
+                        wb_styles.append({
                             'style': original_style,
                             'qty': qty,
                             'net_wt': net_wt,
@@ -94,6 +91,14 @@ def process_invoice_files(invoice_paths, output_path):
                         })
                 except:
                     pass
+        
+        # Calculate per-workbook ratio
+        wb_inv_net = sum(d['qty'] * d['net_wt'] for d in wb_styles)
+        wb_ratio = wb_pl_net / wb_inv_net if wb_pl_net > 0 and wb_inv_net > 0 else 1.0
+
+        for style_d in wb_styles:
+            style_d['ratio'] = wb_ratio
+            styles_data.append(style_d)
 
     idfl_stock = database.get_idfl_stock()
     
@@ -192,9 +197,6 @@ def process_invoice_files(invoice_paths, output_path):
     ws_out.column_dimensions['J'].width = 30
     ws_out.column_dimensions['K'].width = 35
 
-    total_inv_net = sum(d['qty'] * d['net_wt'] for d in styles_data)
-    ratio = total_pl_net / total_inv_net if total_pl_net > 0 and total_inv_net > 0 else 1.0
-
     row_num = 6
     for idx, data in enumerate(styles_data, 1):
         style = data['style']
@@ -202,6 +204,7 @@ def process_invoice_files(invoice_paths, output_path):
         buyer = data['buyer']
         inv_no = data['inv_no']
         quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
+        ratio = data.get('ratio', 1.0)
         
         single_piece_wt = data.get('net_wt')
         
