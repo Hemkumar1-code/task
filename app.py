@@ -449,14 +449,14 @@ def upload_idfl():
                 ws = wb.sheet_by_name('IDFL')
                 for i in range(6, ws.nrows):
                     try:
-                        r1 = str(ws.cell_value(i, 1)).strip() # TC Number
+                        r1 = str(ws.cell_value(i, 2)).strip() # TC Number
                         if not r1 or r1.upper() == 'TC NUMBER': continue
-                        try: 
-                            cert_wt = float(ws.cell_value(i, 2)) # Certified Weight
-                            rem_wt = float(ws.cell_value(i, 3)) # Remaining Weight
+                        try:
+                            cert_wt = float(ws.cell_value(i, 4)) # Certified Weight
+                            rem_wt = float(ws.cell_value(i, 5)) # Remaining Weight
                         except: continue
-                        status = str(ws.cell_value(i, 4)).strip()
-                        products = str(ws.cell_value(i, 5)).strip()
+                        status = str(ws.cell_value(i, 3)).strip()
+                        products = str(ws.cell_value(i, 6)).strip()
                         stock.append({
                             'id': f'idfl_{i}',
                             'sheet': 'IDFL',
@@ -494,14 +494,14 @@ def upload_idfl():
             if 'IDFL' in wb.sheetnames:
                 ws = wb['IDFL']
                 for i, row in enumerate(ws.iter_rows(min_row=7, values_only=True)):
-                    tc = str(row[1] if len(row) > 1 and row[1] else "").strip()
+                    tc = str(row[2] if len(row) > 2 and row[2] else "").strip()
                     if not tc or tc.upper() == 'TC NUMBER': continue
                     try:
-                        cert_wt = float(row[2]) if len(row) > 2 and row[2] is not None else 0.0
-                        rem_wt = float(row[3]) if len(row) > 3 and row[3] is not None else 0.0
+                        cert_wt = float(row[4]) if len(row) > 4 and row[4] is not None else 0.0
+                        rem_wt = float(row[5]) if len(row) > 5 and row[5] is not None else 0.0
                     except: continue
-                    status = str(row[4] if len(row) > 4 and row[4] else "").strip()
-                    prod = str(row[5] if len(row) > 5 and row[5] else "").strip()
+                    status = str(row[3] if len(row) > 3 and row[3] else "").strip()
+                    prod = str(row[6] if len(row) > 6 and row[6] else "").strip()
                     stock.append({
                         'id': f'idfl_{i}',
                         'sheet': 'IDFL',
