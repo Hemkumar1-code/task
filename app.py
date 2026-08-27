@@ -426,45 +426,46 @@ def upload_idfl():
                 ws = wb.sheet_by_name('NON-IDFL')
                 for i in range(4, ws.nrows):
                     try:
-                        r1 = str(ws.cell_value(i, 1)).strip()
-                        r2 = ws.cell_value(i, 2)
-                        r3 = str(ws.cell_value(i, 3)).strip()
-                        if not r1 or not r3: continue
-                        if r1.upper() == 'TC NUMBER': continue
-                        try: rem = float(r2)
+                        r1 = str(ws.cell_value(i, 1)).strip() # TC Number
+                        if not r1 or r1.upper() == 'TC NUMBER': continue
+                        try: 
+                            cert_wt = float(ws.cell_value(i, 2)) # Certified Weight
+                            rem_wt = float(ws.cell_value(i, 3)) # Remaining Weight
                         except: continue
+                        status = str(ws.cell_value(i, 4)).strip()
+                        products = str(ws.cell_value(i, 5)).strip()
                         stock.append({
                             'id': f'non_idfl_{i}',
                             'sheet': 'NON-IDFL',
                             'tc_number': r1,
-                            'initial_weight': rem,
-                            'remaining_weight': rem,
-                            'original_weight': rem,
-                            'products': r3,
-                            'status': 'Active'
+                            'initial_weight': cert_wt,
+                            'remaining_weight': rem_wt,
+                            'original_weight': cert_wt,
+                            'products': products,
+                            'status': status if status else 'Active'
                         })
                     except: pass
             if 'IDFL' in sheetnames:
                 ws = wb.sheet_by_name('IDFL')
                 for i in range(6, ws.nrows):
                     try:
-                        r2 = str(ws.cell_value(i, 2)).strip()
-                        r3 = str(ws.cell_value(i, 3)).strip()
-                        r5 = ws.cell_value(i, 5)
-                        r6 = str(ws.cell_value(i, 6)).strip()
-                        if not r2 or not r6: continue
-                        if r2.upper() == 'TC NUMBER': continue
-                        try: rem = float(r5)
+                        r1 = str(ws.cell_value(i, 1)).strip() # TC Number
+                        if not r1 or r1.upper() == 'TC NUMBER': continue
+                        try: 
+                            cert_wt = float(ws.cell_value(i, 2)) # Certified Weight
+                            rem_wt = float(ws.cell_value(i, 3)) # Remaining Weight
                         except: continue
+                        status = str(ws.cell_value(i, 4)).strip()
+                        products = str(ws.cell_value(i, 5)).strip()
                         stock.append({
                             'id': f'idfl_{i}',
                             'sheet': 'IDFL',
-                            'tc_number': r2,
-                            'initial_weight': rem,
-                            'remaining_weight': rem,
-                            'original_weight': rem,
-                            'products': r6,
-                            'status': r3 if r3 else 'Active'
+                            'tc_number': r1,
+                            'initial_weight': cert_wt,
+                            'remaining_weight': rem_wt,
+                            'original_weight': cert_wt,
+                            'products': products,
+                            'status': status if status else 'Active'
                         })
                     except: pass
         else:
@@ -472,40 +473,44 @@ def upload_idfl():
             if 'NON-IDFL' in wb.sheetnames:
                 ws = wb['NON-IDFL']
                 for i, row in enumerate(ws.iter_rows(min_row=5, values_only=True)):
-                    if not row[1] or not row[3]: continue
-                    tc = str(row[1]).strip()
-                    if tc.upper() == 'TC NUMBER': continue
-                    try: rem = float(row[2])
+                    tc = str(row[1] if len(row) > 1 and row[1] else "").strip()
+                    if not tc or tc.upper() == 'TC NUMBER': continue
+                    try:
+                        cert_wt = float(row[2]) if len(row) > 2 and row[2] is not None else 0.0
+                        rem_wt = float(row[3]) if len(row) > 3 and row[3] is not None else 0.0
                     except: continue
-                    prod = str(row[3]).strip()
+                    status = str(row[4] if len(row) > 4 and row[4] else "").strip()
+                    prod = str(row[5] if len(row) > 5 and row[5] else "").strip()
                     stock.append({
                         'id': f'non_idfl_{i}',
                         'sheet': 'NON-IDFL',
                         'tc_number': tc,
-                        'initial_weight': rem,
-                        'remaining_weight': rem,
-                        'original_weight': rem,
+                        'initial_weight': cert_wt,
+                        'remaining_weight': rem_wt,
+                        'original_weight': cert_wt,
                         'products': prod,
-                        'status': 'Active'
+                        'status': status if status else 'Active'
                     })
             if 'IDFL' in wb.sheetnames:
                 ws = wb['IDFL']
                 for i, row in enumerate(ws.iter_rows(min_row=7, values_only=True)):
-                    if not row[2] or not row[6]: continue
-                    tc = str(row[2]).strip()
-                    if tc.upper() == 'TC NUMBER': continue
-                    try: rem = float(row[5])
+                    tc = str(row[1] if len(row) > 1 and row[1] else "").strip()
+                    if not tc or tc.upper() == 'TC NUMBER': continue
+                    try:
+                        cert_wt = float(row[2]) if len(row) > 2 and row[2] is not None else 0.0
+                        rem_wt = float(row[3]) if len(row) > 3 and row[3] is not None else 0.0
                     except: continue
-                    prod = str(row[6]).strip()
+                    status = str(row[4] if len(row) > 4 and row[4] else "").strip()
+                    prod = str(row[5] if len(row) > 5 and row[5] else "").strip()
                     stock.append({
                         'id': f'idfl_{i}',
                         'sheet': 'IDFL',
                         'tc_number': tc,
-                        'initial_weight': rem,
-                        'remaining_weight': rem,
-                        'original_weight': rem,
+                        'initial_weight': cert_wt,
+                        'remaining_weight': rem_wt,
+                        'original_weight': cert_wt,
                         'products': prod,
-                        'status': str(row[3]).strip() if row[3] else 'Active'
+                        'status': status if status else 'Active'
                     })
         
         database.save_idfl_stock(stock)

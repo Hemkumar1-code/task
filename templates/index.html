@@ -169,11 +169,11 @@
                             <tr class="bg-slate-800/80 text-slate-300 text-sm">
                                 <th class="p-4 font-medium border-b border-slate-700">Sheet</th>
                                 <th class="p-4 font-medium border-b border-slate-700">TC Number</th>
-                                <th class="p-4 font-medium border-b border-slate-700">Products</th>
-                                <th class="p-4 font-medium border-b border-slate-700 text-right">Initial (Kg)</th>
+                                <th class="p-4 font-medium border-b border-slate-700 text-right">Certified Weight(Kg)</th>
                                 <th class="p-4 font-medium border-b border-slate-700 text-right">Used (Kg)</th>
                                 <th class="p-4 font-medium border-b border-slate-700 text-right">Remaining (Kg)</th>
                                 <th class="p-4 font-medium border-b border-slate-700">Status</th>
+                                <th class="p-4 font-medium border-b border-slate-700">Products</th>
                             </tr>
                         </thead>
                         <tbody id="idflTableBody" class="text-sm divide-y divide-slate-800">
@@ -312,9 +312,8 @@
                 
                 tbody.innerHTML = data.map(item => `
                     <tr class="hover:bg-slate-800/50 transition-colors">
-                        <td class="p-4"><span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-300 border border-slate-700">${item.sheet}</span></td>
+                        <td class="p-4 text-xs font-semibold ${item.sheet === 'IDFL' ? 'text-indigo-400' : 'text-slate-400'}">${item.sheet}</td>
                         <td class="p-4 font-medium text-slate-200">${item.tc_number}</td>
-                        <td class="p-4 text-slate-400 truncate max-w-xs" title="${item.products}">${item.products}</td>
                         <td class="p-4 text-right font-mono text-slate-300">${(item.initial_weight || item.remaining_weight).toFixed(3)}</td>
                         <td class="p-4 text-right font-mono text-orange-400">${(item.used_weight || 0).toFixed(3)}</td>
                         <td class="p-4 text-right font-mono ${item.remaining_weight > 0 ? 'text-green-400' : 'text-red-400'}">${item.remaining_weight.toFixed(3)}</td>
@@ -323,6 +322,7 @@
                                 ${item.remaining_weight <= 0 ? 'Exhausted' : item.status}
                             </span>
                         </td>
+                        <td class="p-4 text-slate-400 truncate max-w-xs" title="${item.products}">${item.products}</td>
                     </tr>
                 `).join('');
             } catch(err) {
@@ -358,18 +358,18 @@
         function downloadCSV(type) {
             let csv = [];
             if (type === 'idfl') {
-                csv.push(['Sheet', 'TC Number', 'Products', 'Initial (Kg)', 'Used (Kg)', 'Remaining (Kg)', 'Status']);
+                csv.push(['Sheet', 'TC Number', 'Certified Weight(Kg)', 'Used (Kg)', 'Remaining (Kg)', 'Status', 'Products']);
                 document.querySelectorAll('#idflTableBody tr').forEach(row => {
                     const cols = row.querySelectorAll('td');
                     if (cols.length === 7) {
                         const sheet = cols[0].innerText.trim();
                         const tc = cols[1].innerText.trim();
-                        const products = '"' + cols[2].innerText.trim().replace(/"/g, '""') + '"';
-                        const initWt = cols[3].innerText.trim();
-                        const usedWt = cols[4].innerText.trim();
-                        const remaining = cols[5].innerText.trim();
-                        const status = cols[6].innerText.trim();
-                        csv.push([sheet, tc, products, initWt, usedWt, remaining, status]);
+                        const certWt = cols[2].innerText.trim();
+                        const usedWt = cols[3].innerText.trim();
+                        const remaining = cols[4].innerText.trim();
+                        const status = cols[5].innerText.trim();
+                        const products = '"' + cols[6].innerText.trim().replace(/"/g, '""') + '"';
+                        csv.push([sheet, tc, certWt, usedWt, remaining, status, products]);
                     }
                 });
             } else if (type === 'styles') {
