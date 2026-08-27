@@ -54,11 +54,17 @@ try:
     Base.metadata.create_all(engine)
     # Add column if missing
     with engine.connect() as conn:
-        try: conn.execute(text("ALTER TABLE idfl_stock ADD COLUMN initial_weight FLOAT"))
-        except: pass
-        try: conn.execute(text("ALTER TABLE idfl_stock ADD COLUMN certified_weight FLOAT"))
-        except: pass
-        conn.commit()
+        try:
+            conn.execute(text("ALTER TABLE idfl_stock ADD COLUMN initial_weight FLOAT"))
+            conn.commit()
+        except:
+            conn.rollback()
+            
+        try:
+            conn.execute(text("ALTER TABLE idfl_stock ADD COLUMN certified_weight FLOAT"))
+            conn.commit()
+        except:
+            conn.rollback()
 except Exception as e:
     print(f"Warning: Could not initialize database tables: {e}")
 
