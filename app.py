@@ -284,7 +284,7 @@ def process_invoice_files(invoice_paths, output_path):
                 # Use finished_prod for net_val (output weights), tc_number for IDFL TC No.
                 net_val = fin_val
                 tc_number = matched_stock['tc_number']
-                original_weight = matched_stock['original_weight']
+                original_weight = matched_stock.get('certified_weight', matched_stock.get('initial_weight', ''))
                 open_stock = round(matched_stock['remaining_weight'], 3)
                 
                 # Deduct weight
@@ -438,9 +438,9 @@ def upload_idfl():
                             'id': f'non_idfl_{i}',
                             'sheet': 'NON-IDFL',
                             'tc_number': r1,
-                            'initial_weight': cert_wt,
+                            'certified_weight': cert_wt,
+                            'initial_weight': rem_wt,
                             'remaining_weight': rem_wt,
-                            'original_weight': cert_wt,
                             'products': products,
                             'status': status if status else 'Active'
                         })
@@ -461,9 +461,9 @@ def upload_idfl():
                             'id': f'idfl_{i}',
                             'sheet': 'IDFL',
                             'tc_number': r1,
-                            'initial_weight': cert_wt,
+                            'certified_weight': cert_wt,
+                            'initial_weight': rem_wt,
                             'remaining_weight': rem_wt,
-                            'original_weight': cert_wt,
                             'products': products,
                             'status': status if status else 'Active'
                         })
@@ -485,9 +485,9 @@ def upload_idfl():
                         'id': f'non_idfl_{i}',
                         'sheet': 'NON-IDFL',
                         'tc_number': tc,
-                        'initial_weight': cert_wt,
+                        'certified_weight': cert_wt,
+                        'initial_weight': rem_wt,
                         'remaining_weight': rem_wt,
-                        'original_weight': cert_wt,
                         'products': prod,
                         'status': status if status else 'Active'
                     })
@@ -506,9 +506,9 @@ def upload_idfl():
                         'id': f'idfl_{i}',
                         'sheet': 'IDFL',
                         'tc_number': tc,
-                        'initial_weight': cert_wt,
+                        'certified_weight': cert_wt,
+                        'initial_weight': rem_wt,
                         'remaining_weight': rem_wt,
-                        'original_weight': cert_wt,
                         'products': prod,
                         'status': status if status else 'Active'
                     })
