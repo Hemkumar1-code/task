@@ -312,8 +312,8 @@ def process_invoice_files(invoice_paths, output_path):
             quality, # 3: Product Name and Quality
             tc_number, # 4: TC No(IDFL or Other CB)
             original_weight, # 5: Certified Weight
-            original_weight, # 6: Net Wt
-            original_weight, # 7: Gross Weight
+            open_stock, # 6: Net Wt
+            open_stock, # 7: Gross Weight
             "", # 8: Lot No
             "", # 9: Open Stock
             raw_val, # 10: Raw Material used in Kg
