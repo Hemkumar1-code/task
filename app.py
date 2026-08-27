@@ -51,9 +51,9 @@ def process_invoice_files(invoice_paths, output_path):
     for wb_in in workbooks:
         # 1. Try to extract exact PL Net Weight total for proportional scaling
         wb_pl_net = 0.0
+        wb_pl_gross = 0.0
         if 'PL' in wb_in.sheet_names():
             ws_pl = wb_in.sheet_by_name('PL')
-            pl_found = False
             for i in range(max(0, ws_pl.nrows - 50), ws_pl.nrows):
                 for j in range(ws_pl.ncols):
                     val = str(ws_pl.cell_value(i, j)).strip().upper()
@@ -62,12 +62,17 @@ def process_invoice_files(invoice_paths, output_path):
                             try:
                                 num = float(ws_pl.cell_value(i, k))
                                 if num > 0:
-                                    wb_pl_net += num
-                                    pl_found = True
+                                    wb_pl_net = num
                                     break
                             except: pass
-                        if pl_found: break
-                if pl_found: break
+                    elif any(x in val for x in ['GROSS WEIGHT', 'G.W', 'GROSS WT', 'GR WT']):
+                        for k in range(j+1, ws_pl.ncols):
+                            try:
+                                num = float(ws_pl.cell_value(i, k))
+                                if num > 0:
+                                    wb_pl_gross = num
+                                    break
+                            except: pass
                 
         # 2. Extract styles from INV sheets
         inv_no = 'Unknown Invoice'
@@ -130,9 +135,14 @@ def process_invoice_files(invoice_paths, output_path):
         # Calculate per-workbook ratio
         wb_inv_net = sum(d['qty'] * d['net_wt'] for d in wb_styles)
         wb_ratio = wb_pl_net / wb_inv_net if wb_pl_net > 0 and wb_inv_net > 0 else 1.0
+        
+        wb_supp_ratio = 0.10
+        if wb_pl_gross > 0 and wb_pl_net > 0 and wb_pl_gross > wb_pl_net:
+            wb_supp_ratio = (wb_pl_gross - wb_pl_net) / wb_pl_net
 
         for style_d in wb_styles:
             style_d['ratio'] = wb_ratio
+            style_d['supp_ratio'] = wb_supp_ratio
             styles_data.append(style_d)
 
     database.save_style_weights(style_db_cache)
@@ -245,6 +255,7 @@ def process_invoice_files(invoice_paths, output_path):
         inv_no = data['inv_no']
         quality = data.get('quality', "(1) 100% Organic Cotton (RM0104) (40s VL, / INTERLOCK )")
         ratio = data.get('ratio', 1.0)
+        supp_ratio = data.get('supp_ratio', 0.10)
         
         single_piece_wt = data.get('net_wt')
         
@@ -256,7 +267,7 @@ def process_invoice_files(invoice_paths, output_path):
             loss_pct = 0.21
             raw_used = finished_prod * (1 + loss_pct)
             
-            supp_wt = finished_prod * 0.10
+            supp_wt = finished_prod * supp_ratio
             cert_wt = finished_prod - supp_wt
             
             raw_val = round(raw_used, 3)
